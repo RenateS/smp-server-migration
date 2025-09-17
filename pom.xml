@@ -1,0 +1,75 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>org.holodeckb2b.bdxr.smp.server</groupId>
+	<artifactId>migrationtool</artifactId>
+	<version>1.0.0</version>
+	<packaging>jar</packaging>
+
+	<name>SMP Server Migration Tool</name>
+	<inceptionYear>2025</inceptionYear>
+	<url>http://www.holodeck-smp.org/</url>
+	<scm>
+		<url>https://github.com/holodeck-b2b/smp-server-migration.git</url>
+		<connection>scm:git:https://github.com/holodeck-b2b/smp-server-migration.git</connection>
+	</scm>
+	<issueManagement>
+		<url>https://github.com/holodeck-b2b/smp-server-migration/issues</url>
+	</issueManagement>
+
+	<organization>
+		<name>The Holodeck B2B Team</name>
+		<url>http://www.holodeck-b2b.org/team</url>
+	</organization>
+	<developers>
+		<developer>
+			<name>Sander Fieten</name>
+			<organization>Chasquis</organization>
+			<organizationUrl>http://chasquis-consulting.com/holodeck-b2b-support/</organizationUrl>
+			<email>sander at chasquis-consulting.com/</email>
+			<roles>
+				<role>Architect</role>
+				<role>Lead developer</role>
+			</roles>
+			<timezone>Europe/Amsterdam</timezone>
+		</developer>
+	</developers>
+
+	<dependencies>
+		<dependency>
+		    <groupId>org.holodeckb2b.bdxr.smp.server</groupId>
+		    <artifactId>smp-server-generic</artifactId>
+	        <version>3.0.0</version>
+    	</dependency>
+	</dependencies>
+	
+	<build>
+		<plugins>
+			<plugin>
+				<artifactId>maven-assembly-plugin</artifactId>
+				<configuration>				
+					<descriptorRefs>
+						<descriptorRef>jar-with-dependencies</descriptorRef>
+					</descriptorRefs>
+					<appendAssemblyId>false</appendAssemblyId>
+					<finalName>${project.artifactId}-${project.version}-rt</finalName>
+					<archive>
+						<manifest>
+							<mainClass>org.holodeckb2b.bdxr.smp.server.migration.MigrateSMPServer</mainClass>
+						</manifest>
+					</archive>
+				</configuration>
+				<executions>
+					<execution>
+						<goals>
+							<goal>single</goal>
+						</goals>
+						<phase>package</phase>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>
