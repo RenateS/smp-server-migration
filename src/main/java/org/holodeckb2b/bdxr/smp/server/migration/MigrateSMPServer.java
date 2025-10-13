@@ -20,6 +20,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.security.cert.CertificateException;
 import java.sql.Connection;
@@ -59,6 +60,7 @@ public class MigrateSMPServer {
 	
 	private static final String P_CREATE_NEW_DB = "create.new.db";
 	private static final String P_MASTERPWD = "new.masterpwd";
+	private static final String P_SAVE_MASTERPWD = "save.new.masterpwd";
 	
 	private Properties 	config;
 	private Connection	oldDbConn;
@@ -67,15 +69,12 @@ public class MigrateSMPServer {
 	private final static Timestamp	NOW = Timestamp.from(Instant.now());
 	
 	MigrateSMPServer(String[] args) {
+		System.out.println("====================================================="); 
+		System.out.println("Starting Holodeck SMP migration");
+		
 		List<String> params = Arrays.asList(args);
 		config = new Properties();
 
-		if (params.indexOf("-masterpwd") < 0) {
-			System.err.println("Missing parameter -masterpwd");
-			System.exit(-1);
-		}
-		config.put(P_MASTERPWD, params.get(params.indexOf("-masterpwd") + 1));
-			
 		if (params.indexOf("-config") >= 0) {
 			try (FileInputStream fis = new FileInputStream(params.get(params.indexOf("-config") + 1))) {
 				config.load(fis);
@@ -93,7 +92,7 @@ public class MigrateSMPServer {
 			config.put("old.db.password", "hb2b_smp");
 		
 		if (Utils.isNullOrEmpty(config.getProperty("new.db.url")))
-			config.put("new.db.url", "jdbc:h2:./smpdataV3");
+			config.put("new.db.url", "jdbc:h2:./smpdata-v3");
 		if (Utils.isNullOrEmpty(config.getProperty("new.db.user")))
 			config.put("new.db.user", "hb2b_smp");		
 		if (Utils.isNullOrEmpty(config.getProperty("new.db.password")))
@@ -102,6 +101,10 @@ public class MigrateSMPServer {
 			config.put("new.db.extra.hibernate.default_schema", config.getProperty("new.db.schema"));				
 		
 		config.put(P_CREATE_NEW_DB, !params.contains("-skipCreate"));
+		config.put(P_SAVE_MASTERPWD, !params.contains("-noSavePwd"));
+		
+		if (params.indexOf("-masterpwd") >= 0) 
+			config.put(P_MASTERPWD, params.get(params.indexOf("-masterpwd") + 1));
 	}
 	
 	private void migrate() {
@@ -123,8 +126,13 @@ public class MigrateSMPServer {
 			migrateSMT();
 			migrateProcGroups();
 			migrateParticipants();
-			migrateBindings();			
+			migrateBindings();	
+			
+			System.out.println("====================================================="); 
+			System.out.println("Migration completed successfully.");		
+			
 		} catch (SQLException e) {
+			System.out.println("====================================================="); 
 			System.err.println("Error during migration: " + Utils.getExceptionTrace(e));
 		} finally {
 			if (oldDbConn != null)
@@ -157,6 +165,26 @@ public class MigrateSMPServer {
 	private void migrateServerConfig() throws SQLException {
 		System.out.println("Migrating server configuration");
 		
+		String mpwd = (String) config.get(P_MASTERPWD);
+		if (Utils.isNullOrEmpty(mpwd)) {
+			System.out.println("Generating master password");
+			mpwd = Long.toHexString(Double.doubleToLongBits(Math.random())) 
+						+ Long.toHexString(Double.doubleToLongBits(Math.random()));			
+		}		
+		if ((boolean) config.get(P_SAVE_MASTERPWD)) {
+			String smpHome = (String) config.get("new.smp.home");
+			try (FileWriter fw = 
+						new FileWriter((Utils.isNullOrEmpty(smpHome) ? "./" : smpHome) + "/common.properties", true)) {
+				fw.write("smp.masterpwd=");
+				fw.write(mpwd);
+				fw.write("\n");
+				System.out.println("Saved master password");
+			} catch (IOException e) {
+				System.err.println("WARN: Could not write the master password (" + mpwd 
+									+ ") to the configuration file! Add it manually!");
+			}
+		}
+		
 		StringBuilder insertQuery = new StringBuilder("INSERT INTO ");
 		if (config.getProperty("new.db.schema") != null)
 			insertQuery.append(config.getProperty("new.db.schema")).append('.');
@@ -164,7 +192,7 @@ public class MigrateSMPServer {
 		try (PreparedStatement insert = newDbConn.prepareStatement(insertQuery.toString())) {
 			insert.setLong(1, 1L);
 			insert.setTimestamp(2, NOW);
-			insert.setBytes(3, getServerKeyPair());
+			insert.setBytes(3, getServerKeyPair(mpwd));
 			insert.execute();
 			newDbConn.commit();
 		} 
@@ -181,7 +209,7 @@ public class MigrateSMPServer {
 				});
 	}
 	
-	private byte[] getServerKeyPair() {
+	private byte[] getServerKeyPair(String masterPwd) {
 		System.out.println("Reading server certificate");
 		String certFile = config.get("old.certfile") != null ? (String) config.get("old.certfile") : "signkeypair.p12";
 		try (Scanner s = new Scanner(new File(certFile + ".pwd"));
@@ -192,7 +220,7 @@ public class MigrateSMPServer {
 																				s.hasNextLine() ? s.nextLine() : null), 
 											  baos, null);
 			System.out.println("Read server certificate, encrypting it for use in new version");
-			byte[] encrypted = new DataEncryptor(config.getProperty(P_MASTERPWD)).encrypt(baos.toByteArray());
+			byte[] encrypted = new DataEncryptor(masterPwd).encrypt(baos.toByteArray());
 			System.out.println("Encrypted server certificate");
 			return encrypted;
 		} catch (FileNotFoundException e) {
