@@ -77,7 +77,7 @@ final class DatabaseConfiguration implements PersistenceUnitInfo {
     @Override
     public Properties getProperties() {
         Properties props = new Properties();
-        props.put(org.hibernate.cfg.AvailableSettings.HBM2DDL_AUTO, org.hibernate.tool.schema.Action.CREATE_ONLY);
+        props.put(org.hibernate.cfg.AvailableSettings.HBM2DDL_AUTO, org.hibernate.tool.schema.Action.CREATE);
         props.put(org.hibernate.cfg.AvailableSettings.SHOW_SQL, false);
         props.put(org.hibernate.cfg.AvailableSettings.QUERY_STARTUP_CHECKING, false);
         props.put(org.hibernate.cfg.AvailableSettings.GENERATE_STATISTICS, false);
